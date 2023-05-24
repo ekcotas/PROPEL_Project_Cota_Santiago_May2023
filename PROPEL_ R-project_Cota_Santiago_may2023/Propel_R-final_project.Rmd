@@ -1,0 +1,268 @@
+---
+title: "PROPEL Final Project"
+output: html_notebook
+---
+
+## By: Erika Cota and Natalia Santiago
+
+### The Data Set
+
+The data set being used in this project has information about people's behavior as the COVID-19 pandemic progresses. The data is divided by country and was collected using monthly surveys where people were asked whether they participate in certain activities and how much they agree with provided statements on scale of 0-100.
+
+Using this data set we are interested in seeing how cleanliness behaviors change as the pandemic progresses and how these behavioral patterns change between the United States and Japan. We specifically chose cleanliness because personal hygiene was heavily impacted by the pandemic. We chose to look at the United States and Japan specifically because we wanted to see if global location affected the behavioral trends.
+
+LINK TO DOWNLOAD NECESSARY DATASET: <https://corgis-edu.github.io//corgis/csv/covid_behaviors/>
+
+### Answering Our Question
+
+Begin by installing the following packages if you dont already have them 
+
+```{r}
+# Packages that need to be installed 
+#install.packages("corrr")
+#install.packages("devtools", dependencies = TRUE)
+#install_github("ggobi/ggally")
+```
+
+```{r}
+# Importing necessary libraries 
+library(tidyverse)
+library(magrittr)
+library(corrr)
+```
+
+```{r}
+# Loading the Data 
+covid_behaviors_df <- read_csv("https://corgis-edu.github.io/corgis/datasets/csv/covid_behaviors/covid_behaviors.csv")
+
+#print(covid_behaviors_df) #if you would like to see the data 
+```
+
+```{r}
+# Looking at all the countries included in the data set 
+distinct(covid_behaviors_df, Country, .keep_all = FALSE)
+```
+
+The data we chose to focus on were those that had scores involving people's personal hygiene habits:
+
+-   Country = Name of country
+
+-   Days_Since_Outbreak = Count of days passed since Covid-19 outbreak began
+
+-   Counts_Handwashes = Number of times the respondent washed their hands on the previous day (averaged by country)
+
+-   Scores_Precautions_Cleaned_Surfaces = Score (0-100) related to how much effort the respondent takes to clean surfaces (100 = maximum effort)
+
+-   Scores_Precautions_Used_Hand_Sanitiser = Score (0-100) related to how much effort the respondent takes to use hand sanitize (100 = maximum effort)
+
+-   Scores_Precautions_Covered_Mouth_Sneeze = Score (0-100) related to how much effort the respondent takes to cover their mouth while sneezing (100 = maximum effort)
+
+We noticed that not all countries had answered the questionnaire the same amount of times, such that the amount of entries were different for some countries as seen below
+
+```{r}
+covid_behaviors_df %>%
+    group_by(`Days since outbreak`) %>%
+    summarize(n_countries_answer = n())
+```
+We noticed that the US and Japan were some of those such countries with Japan having answered the questionnaire 4 additional times than the US. In order to counteract comparison between unevenly matched data we accounted for this fact when creating a data frame for Japan and when filtering the data of both countries as will be seen below. This way we only compared the data from days since COVID outbreak where both countries had entries.
+
+We  created individual data frames for the two countries to see individual trends and a data frame with both countries so we could plot the data side by side.
+
+```{r}
+# Selecting Japan's Data with Days since outbreak present in both countries questionaires
+japan_df <- covid_behaviors_df %>%
+  filter(Country == "Japan", `Days since outbreak`<= 238 | `Days since outbreak`>=391) %>%
+  select(Country, `Days since outbreak`, Counts.Handwashes, `Scores.Precautions.Cleaned surfaces`, `Scores.Precautions.Used hand sanitiser`, `Scores.Precautions.Covered mouth sneeze`)
+
+# Selecting United State's Data
+unitedstates_df <- covid_behaviors_df %>%
+  filter(Country == "United States") %>%
+  select(Country, `Days since outbreak`, Counts.Handwashes, `Scores.Precautions.Cleaned surfaces`, `Scores.Precautions.Used hand sanitiser`, `Scores.Precautions.Covered mouth sneeze`)
+  
+# Selecting Japan and United State's Data on days since outbreak that contained both countries
+filtered_data_df <- covid_behaviors_df %>%
+  filter(Country %in% c("United States", "Japan"),`Days since outbreak`<= 238 | `Days since outbreak`>=391) %>%
+  select(Country, `Days since outbreak`, Counts.Handwashes, `Scores.Precautions.Cleaned surfaces`, `Scores.Precautions.Used hand sanitiser`, `Scores.Precautions.Covered mouth sneeze`)
+```
+
+Here we plot each factor individually and compare the two countries individually to see the trends as the days since the outbreak started increases:
+
+```{r}
+# Seeing one trend for all Countries 
+ggplot(filtered_data_df, aes(`Days since outbreak`, Counts.Handwashes, color=Country)) +
+  geom_line(stat = "identity") +
+  labs(x = "Days Since Outbreak", y = "Handwashing Counts") +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal()
+
+ggplot(filtered_data_df, aes(`Days since outbreak`, `Scores.Precautions.Cleaned surfaces`, color=Country)) +
+  geom_line(stat = "identity") +
+  labs(x = "Days Since Outbreak", y = "Cleaning Surfaces") +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal()
+
+ggplot(filtered_data_df, aes(`Days since outbreak`, `Scores.Precautions.Used hand sanitiser`, color=Country)) +
+  geom_line(stat = "identity") +
+  labs(x = "Days Since Outbreak", y = "Using Handsanitizer") +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal()
+
+ggplot(filtered_data_df, aes(`Days since outbreak`, `Scores.Precautions.Covered mouth sneeze`, color=Country)) +
+  geom_line(stat = "identity") +
+  labs(x = "Days Since Outbreak", y = "Covering Mouth when Sneezing") +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal()
+```
+
+-   **Hand washing:** the US overall washes their hands more than Japan but as the pandemic progresses we can see that people's hand washing frequency decreases, in contrast, although Japan tends to wash their hands less they are more consistent in their frequency of washing hands.
+
+-   **Cleaning surfaces:** Although the US recorded they put more effort into cleaning surfaces by the begging of the pandemic in comparison to Japan, the data shows that both countries stopped cleaning surfaces around day 350 of the pandemic.When evaluating the data we believe that the survey most likely stopped having this question and so there are no scores (or in this case scores of zero) for the answers
+
+  If we account for this fact and compare the trend between both countries for the days asked we see the following trend to explain surface cleaning
+  
+```{r}
+ggplot(filtered_data_df %>%
+       filter(`Days since outbreak`<= 238), aes(`Days since outbreak`, `Scores.Precautions.Cleaned surfaces`, color=Country)) +
+  geom_line(stat = "identity") +
+  labs(x = "Days Since Outbreak", y = "Cleaning Surfaces") +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal()
+```
+  
+
+-   **Hand sanitizer usage:** We can see that the US uses more hand sanitizer on average but the usage stayed consistent throughout the pandemic while Japan's hand sanitizer usage started lower and increased throughout the progression of the pandemic.
+
+-   **Mouth Covering when Sneezing:** This trend started high in the US and decreased with the progression of the pandemic, meanwhile for Japan, this trend started low and increased with the progression of the pandemic.
+
+To see which trends were related to each other we created a correlation plot:
+
+```{r}
+filtered_data_df %>% 
+  select(-c(Country, `Days since outbreak`)) %>%
+  #group_by(Country) %>% 
+  correlate() %>% 
+  autoplot()
+```
+This would indicate that Hand Washing and the use of hand sanitizer have a strong positive correlation.
+
+Another way to correlate the cleanliness factors is by seeing the correlation using ggpairs()
+
+```{r}
+ggpairs(filtered_data_df, columns = 3:6, ggplot2::aes(colour = Country))
+  
+```
+
+
+Finally we created bar plots to see how the trends differ in Japan and the United states in the first day of the pandemic outbreak and the last day they have recorded of the survey:
+
+The first plots show the Self reported scores for the factors evaluated for the last time participants responded to the survey for the US and Japan
+
+```{r}
+# Plotting trends in the last day recorded for the survey 
+max_row_japan <- japan_df%>%
+  filter(`Days since outbreak` == max(`Days since outbreak`))
+
+max_row_japan %>%
+  pivot_longer(-c(Country, `Days since outbreak`), names_to = "Columns", values_to = "Values") %>%
+  ggplot(aes(x = Columns, y = Values)) +
+  geom_bar(stat = "identity", fill = "red") +
+  labs(title = "Japan Cleanliness trends at End of Survey Period",
+       x = "Cleanlines Factors", y = "Cleanliness Self reporting score") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_x_discrete(labels=c("Handwashing","Surface cleaning","Covering mouth when sneezing","Hand sanitizer usage"))+
+  coord_cartesian(ylim = c(0, 100))
+
+max_row_us <- unitedstates_df%>%
+  filter(`Days since outbreak` == max(`Days since outbreak`))
+
+max_row_us %>%
+  pivot_longer(-c(Country, `Days since outbreak`), names_to = "Columns", values_to = "Values") %>%
+  ggplot(aes(x = Columns, y = Values)) +
+  geom_bar(stat = "identity", fill = "red") +
+  labs(title = "United States Cleanliness trends at End of Survey Period",
+       x = "Cleanlines Factors", y = "Cleanliness self reporting score") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_x_discrete(labels=c("Handwashing","Surface cleaning","Covering mouth when sneezing","Hand sanitizer usage"))+
+  coord_cartesian(ylim = c(0, 100))
+```
+
+The next plot shows the cleanliness self reported scores that participants reported the first time they took the survey 
+
+
+```{r}
+min_row_japan <- japan_df%>%
+  filter(`Days since outbreak` == min(`Days since outbreak`))
+
+#x_titles <- (Handwashing, Surface cleaning, Covering mouth when sneezing, Using Hand Sanitizer)
+
+min_row_japan %>%
+  group_by(Country) %>%
+  pivot_longer(-c(Country, `Days since outbreak`), names_to = "Columns", values_to = "Values") %>%
+  ggplot(aes(x = Columns, y = Values)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(title = "Japan Cleanliness trends at Begining of Survey Period",
+       x = "Cleanliness Factors", y = "Cleanliness Self reporting score") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_x_discrete(labels=c("Handwashing","Surface cleaning","Covering mouth when sneezing","Hand sanitizer usage"))+
+  coord_cartesian(ylim = c(0, 100))
+
+min_row_us <- unitedstates_df%>%
+  filter(`Days since outbreak` == min(`Days since outbreak`))
+
+min_row_us %>%
+  group_by(Country) %>%
+  pivot_longer(-c(Country, `Days since outbreak`), names_to = "Columns", values_to = "Values") %>%
+  ggplot(aes(x = Columns, y = Values)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(title = "United States Cleanliness trends at Begining of Survey Period",
+       x = "Cleanliness Factors", y = "Cleanliness Self reporting score") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_x_discrete(labels=c("Handwashing","Surface cleaning","Covering mouth when sneezing","Hand sanitizer usage"))+
+  coord_cartesian(ylim = c(0, 100))
+```
+
+Now we will take a look at the data if the bar graphs are plotted side by side by country 
+
+```{r}
+Survey_day_85_japan_us <- filtered_data_df%>%
+  #group_by(Country)
+  filter(`Days since outbreak` == min(`Days since outbreak`))
+
+Survey_day_85_japan_us %>%
+  pivot_longer(-c(Country, `Days since outbreak`), names_to = "Columns", values_to = "Values") %>%
+  ggplot(aes(x = Columns, y = Values, fill=Country)) + 
+  geom_bar(position="dodge", stat="identity")+
+  labs(title = "Cleanliness trends at Begining of Survey Period (Day85)",
+       x = "Cleanlines Factors", y = "Cleanliness self reporting score") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_x_discrete(labels=c("Handwashing","Surface cleaning","Covering mouth when sneezing","Hand sanitizer usage"))+
+  coord_cartesian(ylim = c(0, 100))
+
+
+Survey_day_480_japan_us <- filtered_data_df%>%
+  #group_by(Country)
+  filter(`Days since outbreak` == max(`Days since outbreak`))
+
+Survey_day_480_japan_us %>%
+  pivot_longer(-c(Country, `Days since outbreak`), names_to = "Columns", values_to = "Values") %>%
+  ggplot(aes(x = Columns, y = Values, fill=Country)) + 
+  geom_bar(position="dodge", stat="identity")+
+  labs(title = "Cleanliness trends at End of Survey Period (Day480)",
+       x = "Cleanlines Factors", y = "Cleanliness self reporting score") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_x_discrete(labels=c("Handwashing","Surface cleaning","Covering mouth when sneezing","Hand sanitizer usage"))+
+  coord_cartesian(ylim = c(0, 100))
+```
+
+As observed in the bar plot above Japan improved on their Cleanliness practices when comparing the first and last days of surveying. Meanwhile the United states shows a slight decrease in Cleanliness practices. 
+
+Now that we have seen limited data of COVID behaviors between these 2 countries, how would you personally rate your own cleanliness level as the pandemic progressed? Did you notice a change in your behavior?
+
+
+
